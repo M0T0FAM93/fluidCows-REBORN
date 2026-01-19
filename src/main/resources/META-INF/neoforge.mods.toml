@@ -1,0 +1,14 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="fluidcows"
+version="1.0.0"
+displayName="Fluid Cows"
+description='''Cows that produce registered fluids instead of milk.'''
+
+[[dependencies.fluidcows]]
+modId="neoforge"
+mandatory=true
+versionRange="[21.1.0,)"

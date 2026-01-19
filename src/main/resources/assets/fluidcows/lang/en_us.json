@@ -1,0 +1,7 @@
+{
+  "jade.fluidcows.milk_cooldown": "Milking CoolDown: %s",
+  "item.fluidcows.fluid_cow_spawn_egg": "Fluid Cow Spawn Egg",
+  "entity.fluidcows.fluid_cow": "Fluid Cow",
+  "itemGroup.fluidcows.main": "Fluid Cows",
+  "item.fluidcows.fluid_cow_item": "Fluid Cow"
+}

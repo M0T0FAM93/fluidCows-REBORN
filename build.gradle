@@ -1,0 +1,138 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.gradle.userdev' version '7.0.192'
+}
+
+version = mod_version
+group  = mod_group_id
+
+base {
+    archivesName = "FluidCows-REBORN"
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "${base.archivesName.get()}-${project.minecraft_version}-${project.mod_version}.jar"
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}
+
+/** Repos for NeoForge + Jade (Modrinth Maven) */
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url = "https://maven.neoforged.net/releases" }
+    maven { url = "https://api.modrinth.com/maven" } // Jade
+    maven { url = "https://maven.blamejared.com" } // JEI
+}
+
+runs {
+    configureEach {
+        systemProperty 'forge.logging.markers', 'REGISTRIES'
+        systemProperty 'forge.logging.console.level', 'debug'
+        modSource project.sourceSets.main
+    }
+    client {
+        systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+    }
+    server {
+        systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        argument '--nogui'
+    }
+    gameTestServer {
+        systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+    }
+    data {
+        arguments.addAll '--mod', project.mod_id,
+                '--all',
+                '--output', file('src/generated/resources/').absolutePath,
+                '--existing', file('src/main/resources/').absolutePath
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+/** Local runtime bucket so dev runs can include optional mods (e.g., Jade) */
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    implementation "net.neoforged:neoforge:${neo_version}"
+
+    // ---- OPTIONAL HUD INTEGRATION (Jade) ----
+    // Compile against Jade API but don't bundle it.
+    compileOnly "maven.modrinth:jade:15.10.2+neoforge"     // MC 1.21.1 NeoForge
+    localRuntime "maven.modrinth:jade:15.10.2+neoforge"
+    // -----------------------------------------
+    compileOnly  "mezz.jei:jei-1.21.1-neoforge:19.21.2.313"
+    localRuntime "mezz.jei:jei-1.21.1-neoforge:19.21.2.313"
+}
+
+tasks.withType(ProcessResources).configureEach {
+    def replace = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description
+    ]
+    inputs.properties replace
+    filesMatching(['META-INF/neoforge.mods.toml']) { expand replace }
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven { url = project.layout.projectDirectory.dir("repo").asFile.toURI() }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}
+
+/** Convenience tasks for your CurseForge instance */
+def ozoneInstanceRoot = file('C:/Users/Motofam93/curseforge/minecraft/Instances/Motofam93')
+def ozoneModsDir      = new File(ozoneInstanceRoot, 'mods')
+def ozoneCfgFluidCows = new File(ozoneInstanceRoot, 'config/fluidcows')
+
+tasks.register('cleanFluidCowsConfig', Delete) {
+    delete ozoneCfgFluidCows
+    doFirst { println "[fluidcows] Deleting config: ${ozoneCfgFluidCows}" }
+}
+
+tasks.register('copyJarToOzone', Copy) {
+    dependsOn tasks.named('jar')
+    from(layout.buildDirectory.dir('libs')) {
+        include '*.jar'
+        exclude '*-sources.jar', '*-javadoc.jar'
+    }
+    into ozoneModsDir
+    doFirst { println "[fluidcows] Copying jar(s) to: ${ozoneModsDir}" }
+}
+
+tasks.register('deploy') {
+    group = 'deployment'
+    description = 'Delete Fluid Cows config in the Ozone instance and copy the built jar to mods/.'
+    dependsOn 'cleanFluidCowsConfig', 'copyJarToOzone'
+}

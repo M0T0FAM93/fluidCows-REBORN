@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "minecraft:item/spawn_egg",
+    "layer1": "fluidcows:item/fluid_cow_spawn_egg"
+  }
+}
