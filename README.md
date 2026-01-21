@@ -1,52 +1,77 @@
-# Fluid Cows Reborn
+# FluidCows (REBORN)
 
-Fluid Cows Reborn adds cows that naturally produce Minecraft fluids instead of milk.  
-Each cow represents a registered fluid and can be milked using buckets or compatible containers.
+Cows that produce any fluid in the game. Milk them with buckets, breed them for new types, and capture them with the Cow Snatcher. Every cow displays its fluid texture directly on the model — no flat colors.
 
-Built for modern NeoForge with full support for modded fluids and dynamic textured overlays.
+Works automatically with any mod that registers fluids. No setup required.
+
+**Minecraft:** 1.21.1  
+**Loader:** NeoForge
 
 ---
 
 ## Features
 
-• Fluid producing cow variants  
-• Automatic integration with registered fluids  
-• Bucket and container interaction  
-• Dynamic fluid based textures on cow spots  
-• Configurable spawning and behavior  
-• Compatible with automation mods  
-• Jade integration for in game information  
+**Fluid Cows** spawn naturally. Each one produces a specific fluid. Right-click with an empty bucket to collect it. Cows have a configurable cooldown between milkings.
+
+**Textured Overlays** show the actual fluid texture mapped onto the cow's spots. These generate automatically for every registered fluid. Resource packs can override them.
+
+**Breeding** lets you combine two cow types to create offspring. Configure which parents produce which child, the breeding item required, success chance, and how long babies take to grow up.
+
+**Cow Snatcher** is a craftable tool that picks up adult cows as items. Captured cows keep their cooldowns, which tick down while sitting in your inventory. The tooltip shows time remaining.
+
+**In-Game Config (F7)** lets operators edit everything without restarting. Enable or disable cows, adjust spawn weights, set cooldowns, configure breeding recipes. Changes apply immediately.
 
 ---
 
-## Versions
+## Mod Support
 
-**Minecraft:** 1.21.1  
-**Loader:** NeoForge  
+**JEI** — Browse all fluid cows and their breeding recipes
 
----
-
-## Installation
-
-1 Download the jar from the Releases page  
-2 Place it in your `mods` folder  
-3 Launch Minecraft with NeoForge  
-
----
-
-## Usage
-
-• Fluid cows spawn naturally in the world  
-• Right click a cow with a bucket to collect its fluid  
-• Different cow types produce different registered fluids  
+**Jade** — See fluid type and cooldown timers when looking at a cow
 
 ---
 
 ## Configuration
 
-• Each fluid generates its own config file on first launch  
-• Spawn rates breeding and behavior can be customized  
-• Generated textures and masks can be overridden  
+JSON configs generate automatically for every fluid on first launch. Each file controls:
+
+- Spawn weight
+- Bucket cooldown
+- Breeding cooldown
+- Growth time
+- Breeding parents
+- Breeding item
+- Success chance
+
+Edit through the F7 menu or directly in the config files at `config/fluidcows/`.
+
+---
+
+## Commands
+
+All commands require operator permissions.
+
+- `/fluidcows spawn <fluid> [count]` - Spawn fluid cows
+- `/fluidcows list` - List all enabled fluids
+- `/fluidcows reload` - Reload configs from disk
+- `/fluidcows debug info <fluid>` - Detailed fluid information
+- `/fluidcows debug nearby [radius]` - List fluid cows in range
+- `/fluidcows debug validate` - Check all enabled fluids for issues
+- `/fluidcows debug problematic` - Quick list of fluids to disable
+
+---
+
+## Installation
+
+1. Download the jar from [Releases](https://github.com/Motofam93/FluidCows-REBORN/releases) or [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fluidcows-reborn)
+2. Place it in your `mods` folder
+3. Launch Minecraft with NeoForge
+
+---
+
+## Planned
+
+- Auto-milking integration for automation mods
 
 ---
 
@@ -54,9 +79,9 @@ Built for modern NeoForge with full support for modded fluids and dynamic textur
 
 Contributions are welcome.
 
-• Fork the repository  
-• Create a feature branch  
-• Submit a pull request  
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request
 
 For large changes please open an issue first to discuss the design.
 
@@ -65,10 +90,10 @@ For large changes please open an issue first to discuss the design.
 ## License
 
 This project is licensed under the **MIT License**.  
-Free to use modify distribute and include in modpacks.
+Free to use, modify, distribute, and include in modpacks.
 
 ---
 
 ## Author
 
-**Motofam9393**
+**Motofam93**
