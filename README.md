@@ -70,12 +70,6 @@ All commands require operator permissions.
 
 ---
 
-## Planned
-
-- Auto-milking integration for automation mods
-
----
-
 ## Contributing
 
 Contributions are welcome.
