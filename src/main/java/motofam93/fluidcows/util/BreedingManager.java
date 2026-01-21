@@ -16,7 +16,9 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -26,50 +28,25 @@ public final class BreedingManager {
 
     public record Rule(ResourceLocation child, ResourceLocation p1, ResourceLocation p2, Item item, int chance) {}
 
-    private static final class ParentKey {
-        final ResourceLocation a, b;
-
-        ParentKey(ResourceLocation x, ResourceLocation y) {
-            if (x.toString().compareTo(y.toString()) <= 0) { a = x; b = y; }
-            else { a = y; b = x; }
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof ParentKey pk)) return false;
-            return a.equals(pk.a) && b.equals(pk.b);
-        }
-
-        @Override
-        public int hashCode() { return 31 * a.hashCode() + b.hashCode(); }
-    }
-
-    private static final Map<ParentKey, Rule> RULES = new HashMap<>();
     private static final Map<ResourceLocation, Set<Item>> ITEMS_BY_PARENT = new HashMap<>();
 
     public static void reload() {
-        RULES.clear();
         ITEMS_BY_PARENT.clear();
 
         Path root = FluidCowConfigGenerator.configRoot();
         if (!Files.isDirectory(root)) return;
 
         try (Stream<Path> files = Files.walk(root)) {
-            files.filter(p -> p.getFileName().toString().endsWith(".json")).forEach(BreedingManager::readOne);
+            files.filter(p -> p.getFileName().toString().endsWith(".json")).forEach(BreedingManager::cacheBreedingItem);
         } catch (IOException e) {
             FluidCows.LOGGER.error("Failed to reload breeding rules: {}", e.getMessage());
         }
     }
 
-    private static void readOne(Path file) {
+    private static void cacheBreedingItem(Path file) {
         try (Reader r = Files.newBufferedReader(file)) {
             JsonObject obj = JsonParser.parseReader(r).getAsJsonObject();
             if (!obj.has("breeding") || !obj.get("breeding").isJsonObject()) return;
-
-            String name = file.getFileName().toString().replace(".json", "");
-            String ns = file.getParent().getFileName().toString();
-            ResourceLocation child = ResourceLocation.fromNamespaceAndPath(ns, name);
 
             JsonObject b = obj.getAsJsonObject("breeding");
 
@@ -79,26 +56,79 @@ public final class BreedingManager {
 
             ResourceLocation itemRL = parseRL(b, "breeding_item");
             Item item = itemRL != null ? BuiltInRegistries.ITEM.get(itemRL) : Items.WHEAT;
-            if (item == null) item = Items.WHEAT;
+            if (item == null || item == Items.AIR) item = Items.WHEAT;
 
-            int chance = b.has("chance") ? Math.max(0, Math.min(100, b.get("chance").getAsInt())) : 100;
-
-            RULES.put(new ParentKey(p1, p2), new Rule(child, p1, p2, item, chance));
             ITEMS_BY_PARENT.computeIfAbsent(p1, k -> new ObjectOpenHashSet<>()).add(item);
             ITEMS_BY_PARENT.computeIfAbsent(p2, k -> new ObjectOpenHashSet<>()).add(item);
-        } catch (Throwable t) {
-            FluidCows.LOGGER.error("Failed to read breeding config {}: {}", file, t.getMessage());
-        }
+        } catch (Throwable ignored) {}
     }
 
     private static ResourceLocation parseRL(JsonObject json, String key) {
         if (!json.has(key)) return null;
-        try { return ResourceLocation.parse(json.get(key).getAsString()); }
+        String val = json.get(key).getAsString();
+        if (val == null || val.isEmpty()) return null;
+        try { return ResourceLocation.parse(val); }
         catch (Throwable t) { return null; }
     }
 
     public static Rule findRule(ResourceLocation a, ResourceLocation b) {
-        return RULES.get(new ParentKey(a, b));
+        Path root = FluidCowConfigGenerator.configRoot();
+        if (!Files.isDirectory(root)) return null;
+
+        List<Rule> matchingRules = new ArrayList<>();
+
+        try (Stream<Path> files = Files.walk(root)) {
+            for (Path file : files.filter(p -> p.getFileName().toString().endsWith(".json")).toList()) {
+                Rule rule = readRuleFromFile(file, a, b);
+                if (rule != null) matchingRules.add(rule);
+            }
+        } catch (IOException ignored) {}
+
+        if (matchingRules.isEmpty()) return null;
+        if (matchingRules.size() == 1) return matchingRules.get(0);
+
+        int totalChance = 0;
+        for (Rule r : matchingRules) totalChance += r.chance();
+        if (totalChance <= 0) return matchingRules.get(0);
+
+        int roll = (int) (Math.random() * totalChance);
+        int acc = 0;
+        for (Rule r : matchingRules) {
+            acc += r.chance();
+            if (roll < acc) return r;
+        }
+        return matchingRules.get(0);
+    }
+
+    private static Rule readRuleFromFile(Path file, ResourceLocation a, ResourceLocation b) {
+        if (!Files.exists(file)) return null;
+        try (Reader r = Files.newBufferedReader(file)) {
+            JsonObject obj = JsonParser.parseReader(r).getAsJsonObject();
+            if (!obj.has("breeding") || !obj.get("breeding").isJsonObject()) return null;
+
+            String name = file.getFileName().toString().replace(".json", "");
+            String ns = file.getParent().getFileName().toString();
+            ResourceLocation child = ResourceLocation.fromNamespaceAndPath(ns, name);
+
+            JsonObject br = obj.getAsJsonObject("breeding");
+            ResourceLocation p1 = parseRL(br, "parent_1");
+            ResourceLocation p2 = parseRL(br, "parent_2");
+
+            if (p1 == null || p2 == null) return null;
+
+            boolean matches = (p1.equals(a) && p2.equals(b)) || (p1.equals(b) && p2.equals(a));
+            if (!matches) return null;
+
+            ResourceLocation itemRL = parseRL(br, "breeding_item");
+            Item item = itemRL != null ? BuiltInRegistries.ITEM.get(itemRL) : Items.WHEAT;
+            if (item == null || item == Items.AIR) item = Items.WHEAT;
+
+            int chance = br.has("chance") ? Math.max(0, Math.min(100, br.get("chance").getAsInt())) : 100;
+
+            return new Rule(child, p1, p2, item, chance);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     public static boolean isBreedingItemForParent(ResourceLocation parentFluid, ItemStack stack) {

@@ -29,6 +29,13 @@ public class CowSnatcherItem extends Item {
             return InteractionResult.PASS;
         }
 
+        if (cow.isBaby()) {
+            if (!player.level().isClientSide) {
+                player.displayClientMessage(Component.literal("Cannot capture baby cows!").withStyle(ChatFormatting.RED), true);
+            }
+            return InteractionResult.FAIL;
+        }
+
         if (player.level().isClientSide) {
             return InteractionResult.SUCCESS;
         }
@@ -36,6 +43,8 @@ public class CowSnatcherItem extends Item {
         ServerLevel level = (ServerLevel) player.level();
 
         ItemStack cowItem = FluidCowSpawnItem.withFluid(cow.getFluidRL());
+        FluidCowSpawnItem.setMilkCooldown(cowItem, cow.getMilkCooldownTicks());
+        FluidCowSpawnItem.setBreedingCooldown(cowItem, cow.getAge());
 
         ItemEntity drop = new ItemEntity(
                 level,

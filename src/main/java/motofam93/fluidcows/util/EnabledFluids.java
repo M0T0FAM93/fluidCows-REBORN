@@ -29,17 +29,11 @@ public final class EnabledFluids {
         final ResourceLocation rl;
         final boolean enabled;
         final int weight;
-        final int cooldownTicks;
-        final int growthTicks;
-        final int bucketCooldownTicks;
 
-        Rec(ResourceLocation rl, boolean enabled, int weight, int cooldownTicks, int growthTicks, int bucketCooldownTicks) {
+        Rec(ResourceLocation rl, boolean enabled, int weight) {
             this.rl = rl;
             this.enabled = enabled;
             this.weight = weight;
-            this.cooldownTicks = Math.max(0, cooldownTicks);
-            this.growthTicks = Math.max(0, growthTicks);
-            this.bucketCooldownTicks = Math.max(0, bucketCooldownTicks);
         }
     }
 
@@ -65,8 +59,10 @@ public final class EnabledFluids {
             if (r.enabled && r.weight > 0) TOTAL_WEIGHT += r.weight;
         }
 
-        FluidCows.LOGGER.info("Loaded {} enabled fluid cow types (total weight: {})",
-                RECORDS.values().stream().filter(r -> r.enabled).count(), TOTAL_WEIGHT);
+        FluidCows.LOGGER.info("Loaded {} fluid cow configs ({} enabled, total weight: {})",
+                RECORDS.size(),
+                RECORDS.values().stream().filter(r -> r.enabled).count(), 
+                TOTAL_WEIGHT);
     }
 
     private static void readOne(Path file) {
@@ -93,16 +89,13 @@ public final class EnabledFluids {
 
             boolean enabled = obj.has("enabled") ? obj.get("enabled").getAsBoolean() : true;
             int weight = obj.has("spawn_weight") ? obj.get("spawn_weight").getAsInt() : 1;
-            int cooldown = obj.has("breeding_cooldown_ticks") ? obj.get("breeding_cooldown_ticks").getAsInt() : 6000;
-            int growth = obj.has("growth_time_ticks") ? obj.get("growth_time_ticks").getAsInt() : 24000;
-            int bucketCd = obj.has("bucket_cooldown_ticks") ? obj.get("bucket_cooldown_ticks").getAsInt() : 0;
 
             if (enabled && !isFluidValid(rl)) {
                 FluidCows.LOGGER.warn("Skipping invalid fluid: {}", rl);
                 return;
             }
 
-            RECORDS.put(rl, new Rec(rl, enabled, weight, cooldown, growth, bucketCd));
+            RECORDS.put(rl, new Rec(rl, enabled, weight));
         } catch (Throwable t) {
             FluidCows.LOGGER.error("Failed to read config {}: {}", file, t.getMessage());
         }
@@ -128,22 +121,47 @@ public final class EnabledFluids {
     }
 
     public static int getBreedingCooldown(ResourceLocation rl) {
-        Rec r = RECORDS.get(rl);
-        return r != null ? r.cooldownTicks : 6000;
+        int value = readValueFromDisk(rl, "breeding_cooldown_ticks", 6000);
+        FluidCows.LOGGER.debug("[FluidCows] getBreedingCooldown({}) = {}", rl, value);
+        return value;
     }
 
     public static int getGrowthTimeTicks(ResourceLocation rl) {
-        Rec r = RECORDS.get(rl);
-        return r != null ? r.growthTicks : 24000;
+        int value = readValueFromDisk(rl, "growth_time_ticks", 24000);
+        FluidCows.LOGGER.info("[FluidCows] getGrowthTimeTicks({}) = {} ticks ({}s)", rl, value, value / 20);
+        return value;
     }
 
     public static int getBucketCooldownTicks(ResourceLocation rl) {
-        Rec r = RECORDS.get(rl);
-        return r != null ? r.bucketCooldownTicks : 0;
+        int value = readValueFromDisk(rl, "bucket_cooldown_ticks", 4000);
+        FluidCows.LOGGER.debug("[FluidCows] getBucketCooldownTicks({}) = {}", rl, value);
+        return value;
+    }
+
+    private static int readValueFromDisk(ResourceLocation rl, String key, int defaultValue) {
+        Path file = FluidCowConfigGenerator.configRoot().resolve(rl.getNamespace()).resolve(rl.getPath() + ".json");
+        FluidCows.LOGGER.debug("[FluidCows] Reading {} from {}", key, file.toAbsolutePath());
+        if (!Files.exists(file)) {
+            FluidCows.LOGGER.warn("[FluidCows] Config file not found: {}", file.toAbsolutePath());
+            return defaultValue;
+        }
+        try (Reader r = Files.newBufferedReader(file)) {
+            JsonObject obj = JsonParser.parseReader(r).getAsJsonObject();
+            int value = obj.has(key) ? obj.get(key).getAsInt() : defaultValue;
+            FluidCows.LOGGER.debug("[FluidCows] Read {}={} from {}", key, value, file);
+            return value;
+        } catch (Throwable t) {
+            FluidCows.LOGGER.error("[FluidCows] Failed to read {}: {}", file, t.getMessage());
+            return defaultValue;
+        }
     }
 
     public static Collection<ResourceLocation> all() {
         return RECORDS.values().stream().filter(r -> r.enabled).map(r -> r.rl).collect(Collectors.toUnmodifiableSet());
+    }
+
+    public static Collection<ResourceLocation> allIncludingDisabled() {
+        return RECORDS.keySet();
     }
 
     public static ResourceLocation pickRandom(RandomSource rand) {

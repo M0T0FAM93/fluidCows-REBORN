@@ -1,5 +1,6 @@
 package motofam93.fluidcows.entity;
 
+import motofam93.fluidcows.FluidCows;
 import motofam93.fluidcows.ModRegistries;
 import motofam93.fluidcows.util.BreedingManager;
 import motofam93.fluidcows.util.EnabledFluids;
@@ -18,6 +19,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.ai.goal.TemptGoal;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.Cow;
@@ -27,6 +29,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.living.BabyEntitySpawnEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +42,8 @@ public class FluidCowEntity extends Cow {
     private static final String NBT_MILK = "MilkCooldown";
     private static final EntityDataAccessor<String> DATA_FLUID = SynchedEntityData.defineId(FluidCowEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> DATA_MILK_CD = SynchedEntityData.defineId(FluidCowEntity.class, EntityDataSerializers.INT);
+
+    private ResourceLocation lastOffspringFluid = null;
 
     public FluidCowEntity(EntityType<? extends Cow> type, Level level) {
         super(type, level);
@@ -193,9 +199,47 @@ public class FluidCowEntity extends Cow {
 
     @Override
     public void spawnChildFromBreeding(ServerLevel level, Animal partner) {
-        super.spawnChildFromBreeding(level, partner);
-        this.setAge(EnabledFluids.getBreedingCooldown(this.getFluidRL()));
-        if (partner instanceof FluidCowEntity fc) fc.setAge(EnabledFluids.getBreedingCooldown(fc.getFluidRL()));
+        AgeableMob child = this.getBreedOffspring(level, partner);
+        if (child == null) return;
+
+        BabyEntitySpawnEvent event = new BabyEntitySpawnEvent(this, partner, child);
+        NeoForge.EVENT_BUS.post(event);
+        child = event.getChild();
+        if (child == null) return;
+
+        child.setBaby(true);
+        child.moveTo(this.getX(), this.getY(), this.getZ(), 0.0F, 0.0F);
+        level.addFreshEntityWithPassengers(child);
+
+        if (child instanceof FluidCowEntity fc) {
+            ResourceLocation childFluid = fc.getFluidRL();
+            int growthTime = EnabledFluids.getGrowthTimeTicks(childFluid);
+            fc.setAge(-growthTime);
+            FluidCows.LOGGER.info("[FluidCows] Baby {} spawned with growth time: {} ticks ({}s)", 
+                    childFluid, growthTime, growthTime / 20);
+        }
+
+        ResourceLocation offspringFluid = this.lastOffspringFluid;
+        if (offspringFluid == null) offspringFluid = this.getFluidRL();
+
+        int breedingCooldown = EnabledFluids.getBreedingCooldown(offspringFluid);
+        this.setAge(breedingCooldown);
+
+        if (partner instanceof FluidCowEntity fc) {
+            fc.setAge(breedingCooldown);
+            fc.lastOffspringFluid = null;
+        }
+
+        this.lastOffspringFluid = null;
+
+        this.resetLove();
+        partner.resetLove();
+
+        level.broadcastEntityEvent(this, (byte)18);
+
+        if (level.getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_DOMOBLOOT)) {
+            level.addFreshEntity(new ExperienceOrb(level, this.getX(), this.getY(), this.getZ(), this.getRandom().nextInt(7) + 1));
+        }
     }
 
     @Nullable
@@ -205,31 +249,32 @@ public class FluidCowEntity extends Cow {
         if (child instanceof FluidCowEntity fc) {
             ResourceLocation childFluid = determineOffspringFluid(level, partner);
             fc.setFluidRL(childFluid);
-            fc.setAge(-Math.max(0, EnabledFluids.getGrowthTimeTicks(childFluid)));
-        } else if (child != null) {
-            child.setAge(-24000);
+
+            this.lastOffspringFluid = childFluid;
+            if (partner instanceof FluidCowEntity otherParent) {
+                otherParent.lastOffspringFluid = childFluid;
+            }
         }
         return child;
     }
 
     private ResourceLocation determineOffspringFluid(ServerLevel level, AgeableMob partner) {
         ResourceLocation thisFluid = this.getFluidRL();
-        
+
         if (!(partner instanceof FluidCowEntity otherCow)) {
             return thisFluid;
         }
-        
+
         ResourceLocation otherFluid = otherCow.getFluidRL();
-        
         BreedingManager.Rule rule = BreedingManager.findRule(thisFluid, otherFluid);
-        
+
         if (rule != null) {
             int roll = level.random.nextInt(100);
             if (roll < rule.chance()) {
                 return rule.child();
             }
         }
-        
+
         if (level.random.nextBoolean()) {
             return thisFluid;
         } else {

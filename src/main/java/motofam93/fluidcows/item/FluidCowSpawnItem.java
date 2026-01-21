@@ -16,6 +16,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -34,6 +35,8 @@ import java.util.function.Consumer;
 
 public class FluidCowSpawnItem extends Item {
     public static final String NBT_FLUID = "Fluid";
+    public static final String NBT_MILK_COOLDOWN = "MilkCooldown";
+    public static final String NBT_BREEDING_COOLDOWN = "BreedingCooldown";
 
     public FluidCowSpawnItem(Properties props) {
         super(props);
@@ -63,6 +66,45 @@ public class FluidCowSpawnItem extends Item {
         return rl != null ? rl : ResourceLocation.withDefaultNamespace("water");
     }
 
+    public static void setMilkCooldown(ItemStack stack, int ticks) {
+        stack.update(DataComponents.CUSTOM_DATA, CustomData.EMPTY,
+                data -> data.update(tag -> tag.putInt(NBT_MILK_COOLDOWN, ticks)));
+    }
+
+    public static int getMilkCooldown(ItemStack stack) {
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+        if (data == null) return 0;
+        CompoundTag tag = data.copyTag();
+        return tag.contains(NBT_MILK_COOLDOWN) ? tag.getInt(NBT_MILK_COOLDOWN) : 0;
+    }
+
+    public static void setBreedingCooldown(ItemStack stack, int ticks) {
+        stack.update(DataComponents.CUSTOM_DATA, CustomData.EMPTY,
+                data -> data.update(tag -> tag.putInt(NBT_BREEDING_COOLDOWN, ticks)));
+    }
+
+    public static int getBreedingCooldown(ItemStack stack) {
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+        if (data == null) return 0;
+        CompoundTag tag = data.copyTag();
+        return tag.contains(NBT_BREEDING_COOLDOWN) ? tag.getInt(NBT_BREEDING_COOLDOWN) : 0;
+    }
+
+    @Override
+    public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
+        if (level.isClientSide) return;
+
+        int milkCd = getMilkCooldown(stack);
+        if (milkCd > 0) {
+            setMilkCooldown(stack, milkCd - 1);
+        }
+
+        int breedCd = getBreedingCooldown(stack);
+        if (breedCd > 0) {
+            setBreedingCooldown(stack, breedCd - 1);
+        }
+    }
+
     @Override
     public Component getName(ItemStack stack) {
         ResourceLocation fluidId = getFluid(stack);
@@ -70,26 +112,22 @@ public class FluidCowSpawnItem extends Item {
         FluidStack fluidStack = new FluidStack(fluid, 1000);
         Component fluidName = fluidStack.getHoverName();
         String nameStr = fluidName.getString();
-        
-        // Check if it's an unlocalized key
-        if (nameStr.startsWith("fluid.") || nameStr.startsWith("block.") || 
+
+        if (nameStr.startsWith("fluid.") || nameStr.startsWith("block.") ||
             nameStr.startsWith("item.") || nameStr.startsWith("fluid_type.")) {
             String niceName = formatFluidName(fluidId.getPath());
             return Component.literal(niceName + " Cow");
         }
-        
+
         return Component.empty().append(fluidName).append(Component.literal(" Cow"));
     }
 
-    /**
-     * Converts a fluid path like "molten_iron" to "Molten Iron"
-     */
     private static String formatFluidName(String path) {
         path = path.replace("flowing_", "")
                    .replace("fluid_", "")
                    .replace("_fluid", "")
                    .replace("_still", "");
-        
+
         String[] parts = path.split("_");
         StringBuilder sb = new StringBuilder();
         for (String part : parts) {
@@ -104,8 +142,29 @@ public class FluidCowSpawnItem extends Item {
         return sb.toString();
     }
 
+    private static String formatTime(int ticks) {
+        int seconds = ticks / 20;
+        int minutes = seconds / 60;
+        seconds = seconds % 60;
+        return minutes > 0 ? minutes + "m " + seconds + "s" : seconds + "s";
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, Item.TooltipContext ctx, List<Component> tooltip, TooltipFlag flag) {
+        int milkCd = getMilkCooldown(stack);
+        if (milkCd > 0) {
+            tooltip.add(Component.literal("Milk Cooldown: " + formatTime(milkCd)).withStyle(ChatFormatting.YELLOW));
+        } else {
+            tooltip.add(Component.literal("Ready to milk!").withStyle(ChatFormatting.GREEN));
+        }
+
+        int breedCd = getBreedingCooldown(stack);
+        if (breedCd > 0) {
+            tooltip.add(Component.literal("Breeding Cooldown: " + formatTime(breedCd)).withStyle(ChatFormatting.GOLD));
+        } else {
+            tooltip.add(Component.literal("Ready to breed!").withStyle(ChatFormatting.GREEN));
+        }
+
         tooltip.add(Component.literal("Use on block: Spawn").withStyle(ChatFormatting.GRAY));
         if (ModList.get().isLoaded("jei")) {
             tooltip.add(Component.literal("JEI: R = Breeding,  U = Info").withStyle(ChatFormatting.DARK_GRAY));
@@ -148,6 +207,8 @@ public class FluidCowSpawnItem extends Item {
         }
 
         fc.setFluidRL(fluidId);
+        fc.setMilkCooldownTicks(getMilkCooldown(stack));
+        fc.setAge(getBreedingCooldown(stack));
 
         BlockState state = server.getBlockState(spawnAt);
         double y = state.getCollisionShape(server, spawnAt).isEmpty()

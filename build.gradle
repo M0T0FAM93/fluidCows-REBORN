@@ -19,13 +19,12 @@ java {
     toolchain { languageVersion = JavaLanguageVersion.of(21) }
 }
 
-/** Repos for NeoForge + Jade (Modrinth Maven) */
 repositories {
     mavenLocal()
     mavenCentral()
     maven { url = "https://maven.neoforged.net/releases" }
-    maven { url = "https://api.modrinth.com/maven" } // Jade
-    maven { url = "https://maven.blamejared.com" } // JEI
+    maven { url = "https://api.modrinth.com/maven" }
+    maven { url = "https://maven.blamejared.com" }
 }
 
 runs {
@@ -54,7 +53,6 @@ runs {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
-/** Local runtime bucket so dev runs can include optional mods (e.g., Jade) */
 configurations {
     localRuntime
     runtimeClasspath.extendsFrom localRuntime
@@ -62,12 +60,8 @@ configurations {
 
 dependencies {
     implementation "net.neoforged:neoforge:${neo_version}"
-
-    // ---- OPTIONAL HUD INTEGRATION (Jade) ----
-    // Compile against Jade API but don't bundle it.
-    compileOnly "maven.modrinth:jade:15.10.2+neoforge"     // MC 1.21.1 NeoForge
+    compileOnly "maven.modrinth:jade:15.10.2+neoforge"
     localRuntime "maven.modrinth:jade:15.10.2+neoforge"
-    // -----------------------------------------
     compileOnly  "mezz.jei:jei-1.21.1-neoforge:19.21.2.313"
     localRuntime "mezz.jei:jei-1.21.1-neoforge:19.21.2.313"
 }
@@ -111,7 +105,6 @@ idea {
     }
 }
 
-/** Convenience tasks for your CurseForge instance */
 def instanceRoot = file('C:/Users/Motofam93/curseforge/minecraft/Instances/FluidCows')
 def modsDir      = new File(instanceRoot, 'mods')
 def cfgFluidCows = new File(instanceRoot, 'config/fluidcows')
@@ -121,18 +114,39 @@ tasks.register('cleanFluidCowsConfig', Delete) {
     doFirst { println "[fluidcows] Deleting config: ${cfgFluidCows}" }
 }
 
+tasks.register('cleanOldJars', Delete) {
+    doFirst {
+        println "[fluidcows] Cleaning old FluidCows jars from: ${modsDir}"
+        if (modsDir.exists()) {
+            modsDir.eachFile { file ->
+                if (file.name.startsWith('FluidCows-REBORN') && file.name.endsWith('.jar')) {
+                    println "[fluidcows] Deleting: ${file.name}"
+                    file.delete()
+                }
+            }
+        }
+    }
+}
+
+tasks.register('cleanBuildLibs', Delete) {
+    delete layout.buildDirectory.dir('libs')
+    doFirst { println "[fluidcows] Cleaning build/libs" }
+}
+
 tasks.register('copyJarToInstance', Copy) {
-    dependsOn tasks.named('jar')
+    dependsOn 'cleanOldJars', 'jar'
+    mustRunAfter 'cleanOldJars'
     from(layout.buildDirectory.dir('libs')) {
         include '*.jar'
         exclude '*-sources.jar', '*-javadoc.jar'
     }
     into modsDir
-    doFirst { println "[fluidcows] Copying jar(s) to: ${modsDir}" }
+    doFirst { println "[fluidcows] Copying jar to: ${modsDir}" }
+    doLast { println "[fluidcows] Deploy complete!" }
 }
 
 tasks.register('deploy') {
     group = 'deployment'
-    description = 'Delete Fluid Cows config and copy the built jar to mods/.'
-    dependsOn 'cleanFluidCowsConfig', 'copyJarToInstance'
+    description = 'Clean old jars, delete config, build and copy new jar to mods folder.'
+    dependsOn 'cleanBuildLibs', 'cleanFluidCowsConfig', 'copyJarToInstance'
 }
