@@ -63,9 +63,10 @@ All commands require operator permissions.
 
 ## Installation
 
-1. Download the jar from [Releases](https://github.com/Motofam93/FluidCows-REBORN/releases) or [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fluidcows-reborn)
+1. Download the jar from [Releases](https://github.com/M0T0FAM93/fluidCows-REBORN/releases) or [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fluid-cows-reborn)
 2. Place it in your `mods` folder
 3. Launch Minecraft with NeoForge
+4. Enjoy
 
 ---
 
