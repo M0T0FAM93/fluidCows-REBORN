@@ -9,11 +9,16 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Ingredient;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public final class BreedingManager {
@@ -23,28 +28,21 @@ public final class BreedingManager {
 
     private static final class ParentKey {
         final ResourceLocation a, b;
-        
+
         ParentKey(ResourceLocation x, ResourceLocation y) {
-            if (x.toString().compareTo(y.toString()) <= 0) {
-                a = x;
-                b = y;
-            } else {
-                a = y;
-                b = x;
-            }
+            if (x.toString().compareTo(y.toString()) <= 0) { a = x; b = y; }
+            else { a = y; b = x; }
         }
-        
+
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof ParentKey pk)) return false;
             return a.equals(pk.a) && b.equals(pk.b);
         }
-        
+
         @Override
-        public int hashCode() {
-            return 31 * a.hashCode() + b.hashCode();
-        }
+        public int hashCode() { return 31 * a.hashCode() + b.hashCode(); }
     }
 
     private static final Map<ParentKey, Rule> RULES = new HashMap<>();
@@ -75,37 +73,28 @@ public final class BreedingManager {
 
             JsonObject b = obj.getAsJsonObject("breeding");
 
-            ResourceLocation p1 = parseResourceLocation(b, "parent_1");
-            ResourceLocation p2 = parseResourceLocation(b, "parent_2");
+            ResourceLocation p1 = parseRL(b, "parent_1");
+            ResourceLocation p2 = parseRL(b, "parent_2");
             if (p1 == null || p2 == null) return;
 
-            ResourceLocation itemRL = parseResourceLocation(b, "breeding_item");
-            Item item = itemRL != null 
-                ? BuiltInRegistries.ITEM.get(itemRL) 
-                : BuiltInRegistries.ITEM.get(ResourceLocation.withDefaultNamespace("wheat"));
-            if (item == null) {
-                item = BuiltInRegistries.ITEM.get(ResourceLocation.withDefaultNamespace("wheat"));
-            }
+            ResourceLocation itemRL = parseRL(b, "breeding_item");
+            Item item = itemRL != null ? BuiltInRegistries.ITEM.get(itemRL) : Items.WHEAT;
+            if (item == null) item = Items.WHEAT;
 
             int chance = b.has("chance") ? Math.max(0, Math.min(100, b.get("chance").getAsInt())) : 100;
 
-            Rule rule = new Rule(child, p1, p2, item, chance);
-            RULES.put(new ParentKey(p1, p2), rule);
-
+            RULES.put(new ParentKey(p1, p2), new Rule(child, p1, p2, item, chance));
             ITEMS_BY_PARENT.computeIfAbsent(p1, k -> new ObjectOpenHashSet<>()).add(item);
             ITEMS_BY_PARENT.computeIfAbsent(p2, k -> new ObjectOpenHashSet<>()).add(item);
         } catch (Throwable t) {
-            FluidCows.LOGGER.error("Failed to read breeding config from {}: {}", file, t.getMessage());
+            FluidCows.LOGGER.error("Failed to read breeding config {}: {}", file, t.getMessage());
         }
     }
 
-    private static ResourceLocation parseResourceLocation(JsonObject json, String key) {
+    private static ResourceLocation parseRL(JsonObject json, String key) {
         if (!json.has(key)) return null;
-        try {
-            return ResourceLocation.parse(json.get(key).getAsString());
-        } catch (Throwable t) {
-            return null;
-        }
+        try { return ResourceLocation.parse(json.get(key).getAsString()); }
+        catch (Throwable t) { return null; }
     }
 
     public static Rule findRule(ResourceLocation a, ResourceLocation b) {
@@ -115,21 +104,17 @@ public final class BreedingManager {
     public static boolean isBreedingItemForParent(ResourceLocation parentFluid, ItemStack stack) {
         Set<Item> set = ITEMS_BY_PARENT.get(parentFluid);
         if (set != null && !set.isEmpty()) {
-            for (Item i : set) {
-                if (stack.is(i)) return true;
-            }
+            for (Item i : set) if (stack.is(i)) return true;
             return false;
         }
-        return stack.is(net.minecraft.world.item.Items.WHEAT);
+        return stack.is(Items.WHEAT);
     }
 
-    public static net.minecraft.world.item.crafting.Ingredient ingredientForParent(ResourceLocation parentFluid) {
+    public static Ingredient ingredientForParent(ResourceLocation parentFluid) {
         Set<Item> set = ITEMS_BY_PARENT.get(parentFluid);
         if (set != null && !set.isEmpty()) {
-            return net.minecraft.world.item.crafting.Ingredient.of(
-                set.stream().map(net.minecraft.world.item.ItemStack::new).toArray(net.minecraft.world.item.ItemStack[]::new)
-            );
+            return Ingredient.of(set.stream().map(ItemStack::new).toArray(ItemStack[]::new));
         }
-        return net.minecraft.world.item.crafting.Ingredient.of(net.minecraft.world.item.Items.WHEAT);
+        return Ingredient.of(Items.WHEAT);
     }
 }

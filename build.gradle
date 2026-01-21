@@ -112,27 +112,27 @@ idea {
 }
 
 /** Convenience tasks for your CurseForge instance */
-def ozoneInstanceRoot = file('C:/Users/Motofam93/curseforge/minecraft/Instances/Motofam93')
-def ozoneModsDir      = new File(ozoneInstanceRoot, 'mods')
-def ozoneCfgFluidCows = new File(ozoneInstanceRoot, 'config/fluidcows')
+def instanceRoot = file('C:/Users/Motofam93/curseforge/minecraft/Instances/FluidCows')
+def modsDir      = new File(instanceRoot, 'mods')
+def cfgFluidCows = new File(instanceRoot, 'config/fluidcows')
 
 tasks.register('cleanFluidCowsConfig', Delete) {
-    delete ozoneCfgFluidCows
-    doFirst { println "[fluidcows] Deleting config: ${ozoneCfgFluidCows}" }
+    delete cfgFluidCows
+    doFirst { println "[fluidcows] Deleting config: ${cfgFluidCows}" }
 }
 
-tasks.register('copyJarToOzone', Copy) {
+tasks.register('copyJarToInstance', Copy) {
     dependsOn tasks.named('jar')
     from(layout.buildDirectory.dir('libs')) {
         include '*.jar'
         exclude '*-sources.jar', '*-javadoc.jar'
     }
-    into ozoneModsDir
-    doFirst { println "[fluidcows] Copying jar(s) to: ${ozoneModsDir}" }
+    into modsDir
+    doFirst { println "[fluidcows] Copying jar(s) to: ${modsDir}" }
 }
 
 tasks.register('deploy') {
     group = 'deployment'
-    description = 'Delete Fluid Cows config in the Ozone instance and copy the built jar to mods/.'
-    dependsOn 'cleanFluidCowsConfig', 'copyJarToOzone'
+    description = 'Delete Fluid Cows config and copy the built jar to mods/.'
+    dependsOn 'cleanFluidCowsConfig', 'copyJarToInstance'
 }

@@ -22,10 +22,11 @@ public final class ModCreativeTabs {
                     .title(Component.translatable("itemGroup.fluidcows.main"))
                     .icon(() -> FluidCowSpawnItem.withFluid(ResourceLocation.withDefaultNamespace("water")))
                     .displayItems((params, output) -> {
+                        output.accept(new ItemStack(ModRegistries.COW_SNATCHER.get()));
+                        output.accept(new ItemStack(ModRegistries.FLUID_COW_SPAWN_EGG.get()));
                         for (ResourceLocation rl : EnabledFluids.all()) {
                             output.accept(FluidCowSpawnItem.withFluid(rl));
                         }
-                        output.accept(new ItemStack(ModRegistries.FLUID_COW_SPAWN_EGG.get()));
                     })
                     .build());
 

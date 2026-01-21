@@ -1,6 +1,7 @@
 package motofam93.fluidcows;
 
 import motofam93.fluidcows.entity.FluidCowEntity;
+import motofam93.fluidcows.item.CowSnatcherItem;
 import motofam93.fluidcows.item.FluidCowSpawnItem;
 import motofam93.fluidcows.item.RandomFluidCowSpawnEggItem;
 import net.minecraft.core.registries.Registries;
@@ -32,6 +33,10 @@ public class ModRegistries {
     public static final DeferredHolder<Item, Item> FLUID_COW_SPAWN_ITEM =
             ITEMS.register("fluid_cow_item",
                     () -> new FluidCowSpawnItem(new Item.Properties().stacksTo(16)));
+
+    public static final DeferredHolder<Item, Item> COW_SNATCHER =
+            ITEMS.register("cow_snatcher",
+                    () -> new CowSnatcherItem(new Item.Properties().durability(64)));
 
     public static void init(IEventBus modBus) {
         ITEMS.register(modBus);

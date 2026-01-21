@@ -2,6 +2,9 @@ package motofam93.fluidcows.compat.jei;
 
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.ingredients.subtypes.ISubtypeInterpreter;
+import mezz.jei.api.ingredients.subtypes.UidContext;
 import mezz.jei.api.registration.IRecipeCatalystRegistration;
 import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
@@ -26,13 +29,26 @@ public final class FluidCowsJeiPlugin implements IModPlugin {
     @Override
     public void registerItemSubtypes(ISubtypeRegistration reg) {
         reg.registerSubtypeInterpreter(
+                VanillaTypes.ITEM_STACK,
                 ModRegistries.FLUID_COW_SPAWN_ITEM.get(),
-                (stack, context) -> {
-                    CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-                    if (data == null) return "";
-                    CompoundTag tag = data.copyTag();
-                    if (!tag.contains(FluidCowSpawnItem.NBT_FLUID)) return "";
-                    return tag.getString(FluidCowSpawnItem.NBT_FLUID);
+                new ISubtypeInterpreter<>() {
+                    @Override
+                    public Object getSubtypeData(ItemStack stack, UidContext context) {
+                        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+                        if (data == null) return null;
+                        CompoundTag tag = data.copyTag();
+                        if (!tag.contains(FluidCowSpawnItem.NBT_FLUID)) return null;
+                        return tag.getString(FluidCowSpawnItem.NBT_FLUID);
+                    }
+
+                    @Override
+                    public String getLegacyStringSubtypeInfo(ItemStack stack, UidContext context) {
+                        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+                        if (data == null) return "";
+                        CompoundTag tag = data.copyTag();
+                        if (!tag.contains(FluidCowSpawnItem.NBT_FLUID)) return "";
+                        return tag.getString(FluidCowSpawnItem.NBT_FLUID);
+                    }
                 }
         );
     }

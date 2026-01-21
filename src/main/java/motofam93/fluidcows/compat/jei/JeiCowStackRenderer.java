@@ -15,7 +15,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import java.util.Collections;
 import java.util.List;
 
-/** JEI slot renderer that draws a mini Fluid Cow for an ItemStack carrying the fluid id. */
 final class JeiCowStackRenderer implements IIngredientRenderer<ItemStack> {
     static final JeiCowStackRenderer INSTANCE = new JeiCowStackRenderer();
 
@@ -31,7 +30,6 @@ final class JeiCowStackRenderer implements IIngredientRenderer<ItemStack> {
         cow.setFluidRL(FluidCowSpawnItem.getFluid(stack));
         cow.setBaby(false);
 
-        // Slow spin (matches item BEWLR)
         float angle = spinAngle(30f);
         float yaw = 180f + angle;
         cow.setYRot(yaw); cow.yRotO = yaw;
@@ -42,7 +40,7 @@ final class JeiCowStackRenderer implements IIngredientRenderer<ItemStack> {
         pose.pushPose();
 
         pose.translate(8, 16, 150);
-        pose.scale(8.2f, -8.2f, 8.2f); // negative Y flips to upright in GUI space
+        pose.scale(8.2f, -8.2f, 8.2f);
 
         EntityRenderDispatcher disp = mc.getEntityRenderDispatcher();
         disp.setRenderShadow(false);
@@ -54,7 +52,7 @@ final class JeiCowStackRenderer implements IIngredientRenderer<ItemStack> {
 
     @Override
     public List<Component> getTooltip(ItemStack ingredient, TooltipFlag tooltipFlag) {
-        return Collections.emptyList(); // let JEI use the default item tooltip
+        return Collections.emptyList();
     }
 
     private static float spinAngle(float degPerSec) {

@@ -21,26 +21,21 @@ public final class ModSpawns {
     private static void onEntityJoinLevel(EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide()) return;
         if (event.loadedFromDisk()) return;
-
         if (!(event.getLevel() instanceof ServerLevel level)) return;
-
         if (event.getEntity().getType() != EntityType.COW) return;
         if (!(event.getEntity() instanceof Cow cow)) return;
 
-        int replaceChancePercent = FluidCowsMainConfig.replaceChancePercent();
-        if (replaceChancePercent <= 0) return;
-        if (replaceChancePercent < 100 && level.random.nextInt(100) >= replaceChancePercent) return;
+        int replaceChance = FluidCowsMainConfig.replaceChancePercent();
+        if (replaceChance <= 0) return;
+        if (replaceChance < 100 && level.random.nextInt(100) >= replaceChance) return;
 
         ResourceLocation fluidId = EnabledFluids.pickWeighted(level.random);
-
         FluidCowEntity fc = ModRegistries.FLUID_COW.get().create(level);
         if (fc == null) return;
 
         fc.setFluidRL(fluidId);
-
         BlockPos pos = cow.blockPosition();
         fc.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, cow.getYRot(), cow.getXRot());
-
         level.addFreshEntity(fc);
 
         event.setCanceled(true);

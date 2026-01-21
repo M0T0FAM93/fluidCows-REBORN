@@ -67,8 +67,41 @@ public class FluidCowSpawnItem extends Item {
     public Component getName(ItemStack stack) {
         ResourceLocation fluidId = getFluid(stack);
         var fluid = BuiltInRegistries.FLUID.get(fluidId);
-        Component fluidName = new FluidStack(fluid, 1000).getHoverName();
+        FluidStack fluidStack = new FluidStack(fluid, 1000);
+        Component fluidName = fluidStack.getHoverName();
+        String nameStr = fluidName.getString();
+        
+        // Check if it's an unlocalized key
+        if (nameStr.startsWith("fluid.") || nameStr.startsWith("block.") || 
+            nameStr.startsWith("item.") || nameStr.startsWith("fluid_type.")) {
+            String niceName = formatFluidName(fluidId.getPath());
+            return Component.literal(niceName + " Cow");
+        }
+        
         return Component.empty().append(fluidName).append(Component.literal(" Cow"));
+    }
+
+    /**
+     * Converts a fluid path like "molten_iron" to "Molten Iron"
+     */
+    private static String formatFluidName(String path) {
+        path = path.replace("flowing_", "")
+                   .replace("fluid_", "")
+                   .replace("_fluid", "")
+                   .replace("_still", "");
+        
+        String[] parts = path.split("_");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if (!part.isEmpty()) {
+                if (sb.length() > 0) sb.append(" ");
+                sb.append(Character.toUpperCase(part.charAt(0)));
+                if (part.length() > 1) {
+                    sb.append(part.substring(1).toLowerCase());
+                }
+            }
+        }
+        return sb.toString();
     }
 
     @Override
@@ -138,7 +171,6 @@ public class FluidCowSpawnItem extends Item {
         return InteractionResult.CONSUME;
     }
 
-    @SuppressWarnings("removal")
     @Override
     public void initializeClient(Consumer<IClientItemExtensions> consumer) {
         consumer.accept(new IClientItemExtensions() {

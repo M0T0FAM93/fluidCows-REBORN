@@ -24,19 +24,18 @@ final class JeiCowData {
     static List<JeiCowBreedingRecipe> buildBreedingRecipes() {
         List<JeiCowBreedingRecipe> list = new ArrayList<>();
         for (ResourceLocation child : EnabledFluids.all()) {
-            var b = readBreeding(child);
-            if (b == null) continue;
-            if (b.parent1 == null || b.parent2 == null) continue;
+            Breeding b = readBreeding(child);
+            if (b == null || b.parent1 == null || b.parent2 == null) continue;
 
             Optional<Item> optItem = BuiltInRegistries.ITEM.getOptional(b.breedingItem);
             if (optItem.isEmpty()) continue;
 
-            ItemStack p1 = FluidCowSpawnItem.withFluid(b.parent1);
-            ItemStack p2 = FluidCowSpawnItem.withFluid(b.parent2);
-            ItemStack out = FluidCowSpawnItem.withFluid(child);
-            ItemStack item = new ItemStack(optItem.get());
-
-            list.add(new JeiCowBreedingRecipe(p1, p2, item, out, b.chance));
+            list.add(new JeiCowBreedingRecipe(
+                    FluidCowSpawnItem.withFluid(b.parent1),
+                    FluidCowSpawnItem.withFluid(b.parent2),
+                    new ItemStack(optItem.get()),
+                    FluidCowSpawnItem.withFluid(child),
+                    b.chance));
         }
         return list;
     }
@@ -44,18 +43,18 @@ final class JeiCowData {
     static List<JeiCowInfoRecipe> buildInfoRecipes() {
         List<JeiCowInfoRecipe> list = new ArrayList<>();
         for (ResourceLocation rl : EnabledFluids.all()) {
-            int breed = EnabledFluids.getBreedingCooldown(rl);
-            int grow  = EnabledFluids.getGrowthTimeTicks(rl);
-            int milk  = EnabledFluids.getBucketCooldownTicks(rl);
-            int weight= EnabledFluids.getWeight(rl);
-            list.add(new JeiCowInfoRecipe(FluidCowSpawnItem.withFluid(rl), breed, grow, milk, weight));
+            list.add(new JeiCowInfoRecipe(
+                    FluidCowSpawnItem.withFluid(rl),
+                    EnabledFluids.getBreedingCooldown(rl),
+                    EnabledFluids.getGrowthTimeTicks(rl),
+                    EnabledFluids.getBucketCooldownTicks(rl),
+                    EnabledFluids.getWeight(rl)));
         }
         return list;
     }
 
     static Breeding readBreeding(ResourceLocation child) {
-        Path root = FluidCowConfigGenerator.configRoot();
-        Path json = root.resolve(child.getNamespace()).resolve(child.getPath() + ".json");
+        Path json = FluidCowConfigGenerator.configRoot().resolve(child.getNamespace()).resolve(child.getPath() + ".json");
         if (!Files.exists(json)) return null;
 
         try (Reader r = Files.newBufferedReader(json)) {
@@ -63,18 +62,13 @@ final class JeiCowData {
             if (!obj.has("breeding")) return null;
             JsonObject b = obj.getAsJsonObject("breeding");
 
-            String itemId = b.has("breeding_item") ? b.get("breeding_item").getAsString() : "minecraft:wheat";
-            ResourceLocation itemRl = ResourceLocation.tryParse(itemId);
-
+            Breeding res = new Breeding();
+            res.breedingItem = ResourceLocation.tryParse(b.has("breeding_item") ? b.get("breeding_item").getAsString() : "minecraft:wheat");
             String p1s = b.has("parent_1") ? b.get("parent_1").getAsString() : "";
             String p2s = b.has("parent_2") ? b.get("parent_2").getAsString() : "";
-            int chance = b.has("chance") ? b.get("chance").getAsInt() : 33;
-
-            Breeding res = new Breeding();
-            res.breedingItem = itemRl;
             res.parent1 = p1s.isEmpty() ? null : ResourceLocation.tryParse(p1s);
             res.parent2 = p2s.isEmpty() ? null : ResourceLocation.tryParse(p2s);
-            res.chance = chance;
+            res.chance = b.has("chance") ? b.get("chance").getAsInt() : 33;
             return res;
         } catch (IOException ignored) {
             return null;

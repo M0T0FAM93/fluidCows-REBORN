@@ -4,8 +4,12 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import motofam93.fluidcows.FluidCowConfigGenerator;
 import motofam93.fluidcows.FluidCows;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
+import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -51,11 +55,8 @@ public final class EnabledFluids {
 
         try (Stream<Path> files = Files.walk(root)) {
             files.filter(p -> p.getFileName().toString().endsWith(".json"))
-                    .filter(p -> {
-                        Path parent = p.getParent();
-                        return parent != null && !parent.equals(root);
-                    })
-                    .forEach(EnabledFluids::readOne);
+                 .filter(p -> p.getParent() != null && !p.getParent().equals(root))
+                 .forEach(EnabledFluids::readOne);
         } catch (IOException e) {
             FluidCows.LOGGER.error("Failed walking config directory: {}", e.getMessage());
         }
@@ -63,6 +64,9 @@ public final class EnabledFluids {
         for (Rec r : RECORDS.values()) {
             if (r.enabled && r.weight > 0) TOTAL_WEIGHT += r.weight;
         }
+
+        FluidCows.LOGGER.info("Loaded {} enabled fluid cow types (total weight: {})",
+                RECORDS.values().stream().filter(r -> r.enabled).count(), TOTAL_WEIGHT);
     }
 
     private static void readOne(Path file) {
@@ -78,34 +82,48 @@ public final class EnabledFluids {
                 if (rel.getNameCount() >= 2) {
                     String ns = rel.getName(0).toString();
                     String pathPart = rel.subpath(1, rel.getNameCount()).toString().replace('\\', '/');
-                    if (pathPart.endsWith(".json")) {
-                        pathPart = pathPart.substring(0, pathPart.length() - 5);
-                    }
+                    if (pathPart.endsWith(".json")) pathPart = pathPart.substring(0, pathPart.length() - 5);
                     rl = ResourceLocation.fromNamespaceAndPath(ns, pathPart);
                 }
             }
 
             if (rl == null) return;
-
             if (rl.getNamespace().equals("minecraft") && rl.getPath().equals("empty")) return;
             if (rl.getPath().startsWith("flowing_")) return;
 
             boolean enabled = obj.has("enabled") ? obj.get("enabled").getAsBoolean() : true;
             int weight = obj.has("spawn_weight") ? obj.get("spawn_weight").getAsInt() : 1;
-            int cooldown = obj.has("breeding_cooldown_ticks") 
-                ? obj.get("breeding_cooldown_ticks").getAsInt() 
-                : 6000;
-            int growth = obj.has("growth_time_ticks") 
-                ? obj.get("growth_time_ticks").getAsInt() 
-                : 24000;
-            int bucketCd = obj.has("bucket_cooldown_ticks") 
-                ? obj.get("bucket_cooldown_ticks").getAsInt() 
-                : 0;
+            int cooldown = obj.has("breeding_cooldown_ticks") ? obj.get("breeding_cooldown_ticks").getAsInt() : 6000;
+            int growth = obj.has("growth_time_ticks") ? obj.get("growth_time_ticks").getAsInt() : 24000;
+            int bucketCd = obj.has("bucket_cooldown_ticks") ? obj.get("bucket_cooldown_ticks").getAsInt() : 0;
+
+            if (enabled && !isFluidValid(rl)) {
+                FluidCows.LOGGER.warn("Skipping invalid fluid: {}", rl);
+                return;
+            }
 
             RECORDS.put(rl, new Rec(rl, enabled, weight, cooldown, growth, bucketCd));
-
         } catch (Throwable t) {
-            FluidCows.LOGGER.error("Failed to read config file {}: {}", file, t.getMessage());
+            FluidCows.LOGGER.error("Failed to read config {}: {}", file, t.getMessage());
+        }
+    }
+
+    public static boolean isFluidValid(ResourceLocation rl) {
+        try {
+            Fluid fluid = BuiltInRegistries.FLUID.get(rl);
+            if (fluid == null || fluid == Fluids.EMPTY) return false;
+
+            String name = new FluidStack(fluid, 1000).getHoverName().getString();
+            if (name == null || name.isEmpty()) return false;
+            if (name.startsWith("block.") || name.startsWith("fluid.") || name.startsWith("item.")) return false;
+            if (name.contains("�")) return false;
+
+            for (char c : name.toCharArray()) {
+                if (c < 32 && c != '\n' && c != '\r' && c != '\t') return false;
+            }
+            return true;
+        } catch (Throwable t) {
+            return false;
         }
     }
 
@@ -125,10 +143,7 @@ public final class EnabledFluids {
     }
 
     public static Collection<ResourceLocation> all() {
-        return RECORDS.values().stream()
-                .filter(r -> r.enabled)
-                .map(r -> r.rl)
-                .collect(Collectors.toUnmodifiableSet());
+        return RECORDS.values().stream().filter(r -> r.enabled).map(r -> r.rl).collect(Collectors.toUnmodifiableSet());
     }
 
     public static ResourceLocation pickRandom(RandomSource rand) {
@@ -139,7 +154,6 @@ public final class EnabledFluids {
 
     public static ResourceLocation pickWeighted(RandomSource rand) {
         if (TOTAL_WEIGHT <= 0) return pickRandom(rand);
-
         int roll = rand.nextInt(TOTAL_WEIGHT);
         int acc = 0;
         for (Rec r : RECORDS.values()) {

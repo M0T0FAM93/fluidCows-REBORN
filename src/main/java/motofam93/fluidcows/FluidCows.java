@@ -1,6 +1,7 @@
 package motofam93.fluidcows;
 
 import com.mojang.logging.LogUtils;
+import motofam93.fluidcows.client.ClientKeybinds;
 import motofam93.fluidcows.client.ClientWarmup;
 import motofam93.fluidcows.client.TexturedMaskCache;
 import motofam93.fluidcows.command.FluidCowsCommands;
@@ -33,6 +34,7 @@ public class FluidCows {
         if (FMLEnvironment.dist == Dist.CLIENT) {
             modBus.addListener(this::clientSetup);
             modBus.addListener(this::onRegisterReloadListeners);
+            modBus.addListener(ClientKeybinds::registerKeyMappings);
         }
 
         NeoForge.EVENT_BUS.addListener(FluidCowsCommands::onRegisterCommands);
