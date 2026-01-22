@@ -1,6 +1,5 @@
 package motofam93.fluidcows.entity;
 
-import motofam93.fluidcows.FluidCows;
 import motofam93.fluidcows.ModRegistries;
 import motofam93.fluidcows.util.BreedingManager;
 import motofam93.fluidcows.util.EnabledFluids;
@@ -20,7 +19,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ExperienceOrb;
-import net.minecraft.world.entity.ai.goal.TemptGoal;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.Cow;
 import net.minecraft.world.entity.player.Player;
@@ -133,6 +131,32 @@ public class FluidCowEntity extends Cow {
         }
     }
 
+    @Override
+    public Component getName() {
+        Component customName = this.getCustomName();
+        if (customName != null) return customName;
+        
+        Fluid f = BuiltInRegistries.FLUID.get(getFluidRL());
+        if (f != null && f != Fluids.EMPTY) {
+            FluidStack stack = new FluidStack(f, 1000);
+            Component fluidName = stack.getHoverName();
+            String nameStr = fluidName.getString();
+
+            if (nameStr.startsWith("fluid.") || nameStr.startsWith("block.") ||
+                nameStr.startsWith("item.") || nameStr.startsWith("fluid_type.")) {
+                return Component.literal(formatFluidName(getFluidRL().getPath()) + " Cow");
+            } else {
+                return Component.empty().append(fluidName).append(Component.literal(" Cow"));
+            }
+        }
+        return super.getName();
+    }
+
+    @Override
+    public Component getDisplayName() {
+        return getName();
+    }
+
     private void refreshCustomName() {
         Fluid f = BuiltInRegistries.FLUID.get(getFluidRL());
         if (f != null && f != Fluids.EMPTY) {
@@ -215,8 +239,6 @@ public class FluidCowEntity extends Cow {
             ResourceLocation childFluid = fc.getFluidRL();
             int growthTime = EnabledFluids.getGrowthTimeTicks(childFluid);
             fc.setAge(-growthTime);
-            FluidCows.LOGGER.info("[FluidCows] Baby {} spawned with growth time: {} ticks ({}s)", 
-                    childFluid, growthTime, growthTime / 20);
         }
 
         ResourceLocation offspringFluid = this.lastOffspringFluid;
@@ -284,8 +306,14 @@ public class FluidCowEntity extends Cow {
 
     @Override
     protected void registerGoals() {
-        super.registerGoals();
-        this.goalSelector.addGoal(3, new TemptGoal(this, 1.25D, BreedingManager.ingredientForParent(getFluidRL()), false));
+        this.goalSelector.addGoal(0, new net.minecraft.world.entity.ai.goal.FloatGoal(this));
+        this.goalSelector.addGoal(1, new net.minecraft.world.entity.ai.goal.PanicGoal(this, 2.0D));
+        this.goalSelector.addGoal(2, new net.minecraft.world.entity.ai.goal.BreedGoal(this, 1.0D));
+        this.goalSelector.addGoal(3, new DynamicTemptGoal(this, 1.25D));
+        this.goalSelector.addGoal(4, new net.minecraft.world.entity.ai.goal.FollowParentGoal(this, 1.25D));
+        this.goalSelector.addGoal(5, new net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal(this, 1.0D));
+        this.goalSelector.addGoal(6, new net.minecraft.world.entity.ai.goal.LookAtPlayerGoal(this, Player.class, 6.0F));
+        this.goalSelector.addGoal(7, new net.minecraft.world.entity.ai.goal.RandomLookAroundGoal(this));
     }
 
     @Override

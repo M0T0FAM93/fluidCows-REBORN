@@ -114,7 +114,8 @@ public class ItemSearchWidget extends AbstractWidget {
         int listHeight = Math.min(filteredItems.size(), MAX_VISIBLE) * OPTION_HEIGHT;
         int listY = getY() + height;
 
-        graphics.fill(getX(), listY, getX() + width, listY + listHeight, 0xEE222222);
+        graphics.fill(getX() - 1, listY - 1, getX() + width + 1, listY + listHeight + 1, 0xFF000000);
+        graphics.fill(getX(), listY, getX() + width, listY + listHeight, 0xFF222222);
         graphics.renderOutline(getX(), listY, width, listHeight, 0xFFAAAAAA);
 
         int visibleCount = Math.min(filteredItems.size(), MAX_VISIBLE);

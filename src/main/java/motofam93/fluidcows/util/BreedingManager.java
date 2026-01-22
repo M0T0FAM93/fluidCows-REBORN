@@ -17,6 +17,7 @@ import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -132,19 +133,30 @@ public final class BreedingManager {
     }
 
     public static boolean isBreedingItemForParent(ResourceLocation parentFluid, ItemStack stack) {
-        Set<Item> set = ITEMS_BY_PARENT.get(parentFluid);
-        if (set != null && !set.isEmpty()) {
-            for (Item i : set) if (stack.is(i)) return true;
-            return false;
+        if (stack.isEmpty()) return false;
+        
+        Set<Item> items = ITEMS_BY_PARENT.get(parentFluid);
+        
+        if (items == null || items.isEmpty()) {
+            return stack.is(Items.WHEAT);
         }
-        return stack.is(Items.WHEAT);
+        
+        for (Item i : items) {
+            if (stack.is(i)) return true;
+        }
+        return false;
     }
 
     public static Ingredient ingredientForParent(ResourceLocation parentFluid) {
-        Set<Item> set = ITEMS_BY_PARENT.get(parentFluid);
-        if (set != null && !set.isEmpty()) {
-            return Ingredient.of(set.stream().map(ItemStack::new).toArray(ItemStack[]::new));
+        Set<Item> items = ITEMS_BY_PARENT.get(parentFluid);
+        if (items == null || items.isEmpty()) {
+            return Ingredient.of(Items.WHEAT);
         }
-        return Ingredient.of(Items.WHEAT);
+        return Ingredient.of(items.stream().map(ItemStack::new).toArray(ItemStack[]::new));
+    }
+    
+    public static Set<Item> getBreedingItemsForParent(ResourceLocation parentFluid) {
+        Set<Item> items = ITEMS_BY_PARENT.get(parentFluid);
+        return items != null ? Collections.unmodifiableSet(items) : Collections.emptySet();
     }
 }

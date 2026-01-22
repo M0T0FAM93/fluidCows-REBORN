@@ -6,6 +6,7 @@ import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidUtil;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -26,22 +27,48 @@ public final class FluidCowConfigGenerator {
             Files.createDirectories(ROOT);
         } catch (IOException ignored) {}
         
+        int generated = 0;
+        int skipped = 0;
+        
         for (Fluid f : BuiltInRegistries.FLUID) {
             if (f == Fluids.EMPTY) continue;
-            writeOne(f);
+            if (writeOne(f)) {
+                generated++;
+            } else {
+                skipped++;
+            }
         }
+        
+        FluidCows.LOGGER.info("Config generation complete: {} generated, {} skipped (no bucket or flowing)", generated, skipped);
     }
 
-    private static void writeOne(Fluid f) {
+    private static boolean writeOne(Fluid f) {
         ResourceLocation id = BuiltInRegistries.FLUID.getKey(f);
-        if (id == null || id.getPath().contains("flowing")) return;
+        if (id == null) return false;
+        
+        // Skip flowing variants
+        if (id.getPath().contains("flowing")) return false;
+        
+        // Skip potion fluids - they have too many variants and don't make sense as cows
+        if (id.getPath().contains("potion")) return false;
+        
+        // Skip null/placeholder fluids - they display as question marks
+        if (id.getPath().contains("null")) return false;
+
+        // Only generate config if the fluid has a bucket
+        FluidStack stack = new FluidStack(f, 1000);
+        if (FluidUtil.getFilledBucket(stack).isEmpty()) {
+            FluidCows.LOGGER.debug("Skipping fluid without bucket: {}", id);
+            return false;
+        }
 
         Path file = ROOT.resolve(Path.of(id.getNamespace(), id.getPath() + ".json"));
         try {
             Files.createDirectories(file.getParent());
         } catch (IOException ignored) {}
         
-        if (Files.exists(file)) return;
+        // Don't overwrite existing configs
+        if (Files.exists(file)) return false;
 
         String sprite = getStillSpriteId(f, id);
 
@@ -65,8 +92,10 @@ public final class FluidCowConfigGenerator {
 
         try (Writer w = Files.newBufferedWriter(file)) {
             w.write(json);
+            return true;
         } catch (IOException e) {
             FluidCows.LOGGER.error("Failed writing config file {}: {}", file, e.getMessage());
+            return false;
         }
     }
 
